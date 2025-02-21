@@ -1,0 +1,10 @@
+k8s_file/*
+pipeline_script/*
+ec2_server/.terraform.lock.hcl
+ec2_server/.terraform/*
+ec2_server/projectkey.pem
+eks_code/*
+access.sh
+Project_WriteUp.docx
+README.md
+Dockerfile
