@@ -1,0 +1,56 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'AWS_REGION', defaultValue: 'eu-north-1', description: 'AWS region')
+        string(name: 'AWS_ACCOUNT_ID', defaultValue: '600627332632', description: 'AWS account ID')
+        string(name: 'ECR_REPOSITORY', defaultValue: 'amazon-prime', description: 'Respositoy name')
+        string(name: 'VERSION', defaultValue: 'latest', description: 'version number')
+        string(name: 'CLUSTER_NAME', defaultValue: 'devops-project-cluster', description: 'Name of EKS cluster')
+    }
+
+    stages {
+        stage("Clone GitHub Repository") {
+            steps {
+                // Clone the repository containing deployment and service files
+                git branch: 'main', url: 'https://github.com/DonGranda/cd-ciproject.git'
+            }
+        }
+		
+        stage("Login to EKS") {eks
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'access_key', variable: 'AWS_ACCESS_KEY'),
+                                     string(credentialsId: 'secret_key', variable: 'AWS_SECRET_KEY')]) {
+                        // Update kubeconfig
+                        sh "aws eks --region ${params.AWS_REGION} update-kubeconfig --name ${params.CLUSTER_NAME}"
+                        
+                    }
+                }
+            }
+        }
+
+		
+      stage ("Select Image Version") {
+            steps {
+                script {
+                        def ECR_IMAGE_NAME = "${params.AWS_ACCOUNT_ID}.dkr.ecr.${params.AWS_REGION}.amazonaws.com/${params.ECR_REPOSITORY}:${params.VERSION}"
+                        sh "sed -i 's|image: .*|image: ${ECR_IMAGE_NAME}|' k8s_files/deployment.yaml"
+                }	
+            }
+        }		
+
+        // ----------------------------------------------------
+	// USE THIS STAGE TO DEPLOY IMAGE AS PER THE VERSION NO
+        // ----------------------------------------------------
+        stage("Deploy to EKS") {
+            steps {
+                script {
+                        // Apply the deployment and service files
+                        sh "kubectl apply -f k8s_files/deployment.yaml"
+                        sh "kubectl apply -f k8s_files/service.yaml"
+                }
+            }
+        }
+    }
+}

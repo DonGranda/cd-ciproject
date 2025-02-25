@@ -2,18 +2,18 @@ pipeline {
     agent any
 
     tools{
-        jdk 'JDK17.0.8'
-        nodejs 'Nodejs16.20'
+        jdk 'jdk17.0.8'
+        nodejs 'nodejs16'
     }
     parameters {
         string(name: 'ECR_REPOSITORY', defaultValue: 'amazon-prime', description: 'Enter repository name')
-        string(name: 'AWS_ACCOUNT_ID', defaultValue: '600627332632', description: 'Enter AWS Account ID') 
+        string(name: 'AWS_ACCOUNT_ID', defaultValue: '#####', description: 'Enter AWS Account ID') 
     }
 
     stages {
         stage('Git Checkout') {
             steps {
-               git branch: 'main', url: 'https://github.com/pandacloud1/DevopsProject2.git'
+               git branch: 'main', url: 'https://github.com/DonGranda/cd-ciproject.git'
             }
         }
 
@@ -23,11 +23,11 @@ pipeline {
             }
             steps {
                 script {
-                    withSonarQubeEnv('sonar-serv') {
+                    withSonarQubeEnv('sonarqube') {
                         sh """
                             ${ScannerHome}/bin/sonar-scanner \
                              -Dsonar.projectKey=amazontest \
-                             -Dsonar.projectName=AmazonCICD \
+                            //  -Dsonar.projectName=AmazonCICD \
                         """
                     }
                 }
@@ -71,7 +71,7 @@ pipeline {
             stage('Create ECR Repo ') {
             
             steps {
-                withCredentials([string(credentialsId: 'acces_key', variable: 'AWS_ACCESS_KEY'), string(credentialsId: 'secret_key', variable: 'AWS_SECRET_KEY')]) {
+                withCredentials([string(credentialsId: 'access_key', variable: 'AWS_ACCESS_KEY'), string(credentialsId: 'secret_key', variable: 'AWS_SECRET_KEY')]) {
                 sh """
                 aws configure set aws_access_key_id $AWS_ACCESS_KEY
                 aws configure set aws_secret_access_key $AWS_SECRET_KEY
@@ -85,7 +85,7 @@ pipeline {
             stage('Tag ECR Image') {
             
             steps {
-                withCredentials([string(credentialsId: 'acces_key', variable: 'AWS_ACCESS_KEY'), string(credentialsId: 'secret_key', variable: 'AWS_SECRET_KEY')]) {
+                withCredentials([string(credentialsId: 'access_key', variable: 'AWS_ACCESS_KEY'), string(credentialsId: 'secret_key', variable: 'AWS_SECRET_KEY')]) {
                 sh """
                 aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin ${params.AWS_ACCOUNT_ID}.dkr.ecr.eu-north-1.amazonaws.com
                 docker tag ${params.ECR_REPOSITORY} ${params.AWS_ACCOUNT_ID}.dkr.ecr.eu-north-1.amazonaws.com/${params.ECR_REPOSITORY}:${BUILD_NUMBER}
@@ -98,7 +98,7 @@ pipeline {
                 stage('Push ECR Image') {
             
             steps {
-                withCredentials([string(credentialsId: 'acces_key', variable: 'AWS_ACCESS_KEY'), string(credentialsId: 'secret_key', variable: 'AWS_SECRET_KEY')]) {
+                withCredentials([string(credentialsId: 'access_key', variable: 'AWS_ACCESS_KEY'), string(credentialsId: 'secret_key', variable: 'AWS_SECRET_KEY')]) {
                 sh """
                 aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin ${params.AWS_ACCOUNT_ID}.dkr.ecr.eu-north-1.amazonaws.com
                 docker push ${params.AWS_ACCOUNT_ID}.dkr.ecr.eu-north-1.amazonaws.com/${params.ECR_REPOSITORY}:${BUILD_NUMBER}
@@ -112,7 +112,7 @@ pipeline {
             stage('Clean Up images on Jenkins') {
             
             steps {
-                withCredentials([string(credentialsId: 'acces_key', variable: 'AWS_ACCESS_KEY'), string(credentialsId: 'secret_key', variable: 'AWS_SECRET_KEY')]) {
+                withCredentials([string(credentialsId: 'access_key', variable: 'AWS_ACCESS_KEY'), string(credentialsId: 'secret_key', variable: 'AWS_SECRET_KEY')]) {
                 sh """
                 aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin ${params.AWS_ACCOUNT_ID}.dkr.ecr.eu-north-1.amazonaws.com
                     docker rmi ${params.ECR_REPOSITORY} ${params.AWS_ACCOUNT_ID}.dkr.ecr.eu-north-1.amazonaws.com/${params.ECR_REPOSITORY}:${BUILD_NUMBER}

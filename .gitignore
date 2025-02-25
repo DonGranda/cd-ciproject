@@ -1,10 +1,20 @@
-k8s_file/*
-pipeline_script/*
-ec2_server/.terraform.lock.hcl
-ec2_server/.terraform/*
-ec2_server/projectkey.pem
-eks_code/*
+# pipeline_script/*
+# ec2_server/.terraform.lock.hcl
+# ec2_server/.terraform/*
+#
+
+terraform_code/ec2_server/projectkey.pem
+terraform_code/ec2_server/.terraform.lock.hcl
+terraform_code/ec2_server/.terraform/*
+terraform_code/ec2_server/terraform.tfstate
+terraform_code/ec2_server/terraform.tfstate.backup
+
+eks_code/projectkey.pem
+terraform_code/eks_code/terraform.tfstate
+terraform_code/eks_code/terraform.tfstate.backup
+terraform_code/eks_code/.terraform.lock.hcl
+terraform_code/eks_code/.terraform/
+
 access.sh
 Project_WriteUp.docx
 README.md
-Dockerfile
