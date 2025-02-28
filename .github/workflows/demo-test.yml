@@ -1,7 +1,6 @@
 name: remote ssh command
 on:
-  pull_request:
-    types: [opened]
+  push
 
 jobs:
   build:
