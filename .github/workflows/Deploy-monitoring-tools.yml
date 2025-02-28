@@ -1,0 +1,20 @@
+name: Configure-Prometheus-Grafana-AgroCD
+
+on: 
+  workflow_dispatch
+  # - push
+
+jobs: 
+    Configuring-Monitoring-and-CD-tools:
+        runs-on: ubuntu-latest
+        steps: 
+          - name: Checkout Code 
+            uses: actions/checkout@v4
+
+          - name: AWS EKS credentials
+            run: aws eks update-kubeconfig --name devops-project-cluster  --region {{env.AWS_REGION}}# Change to your cluster name to match the EKS cluster name
+    
+          - name: Setup kubectl
+            uses: azure/setup-kubectl@v1
+            
+    
