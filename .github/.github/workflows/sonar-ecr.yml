@@ -1,7 +1,8 @@
 name: Check for Code Smells and Push to ECR
 
 on:
-  push
+  # push
+  workflow_dispatch
 
 jobs:
   Check_for_Code_Smells:

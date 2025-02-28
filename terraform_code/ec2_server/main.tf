@@ -25,14 +25,12 @@ resource "aws_instance" "my-ec2" {
 
     inline = [
       # Install AWS CLI
-      # Ref: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
       "sudo apt install unzip -y",
       "curl 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o 'awscliv2.zip'",
       "unzip awscliv2.zip",
       "sudo ./aws/install",
 
       # Install Docker
-      # Ref: https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
       "sudo apt-get update -y",
       "sudo apt-get install -y ca-certificates curl",
       "sudo install -m 0755 -d /etc/apt/keyrings",
@@ -49,7 +47,6 @@ resource "aws_instance" "my-ec2" {
       "docker run -d --name sonar -p 9000:9000 sonarqube:latest",
 
       # Install Trivy
-      # Ref: https://aquasecurity.github.io/trivy/v0.18.3/installation/
       "sudo apt-get install -y wget apt-transport-https gnupg",
       "wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null",
       "echo 'deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main' | sudo tee -a /etc/apt/sources.list.d/trivy.list",
@@ -57,7 +54,6 @@ resource "aws_instance" "my-ec2" {
       "sudo apt-get install trivy -y",
 
       # Install Kubectl
-      # Ref: https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html#kubectl-install-update
       "curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.30.4/2024-09-11/bin/linux/amd64/kubectl",
       "curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.30.4/2024-09-11/bin/linux/amd64/kubectl.sha256",
       "sha256sum -c kubectl.sha256",
@@ -70,28 +66,23 @@ resource "aws_instance" "my-ec2" {
       "kubectl version --client",
 
       # Install Helm
-      # Ref: https://helm.sh/docs/intro/install/
-      # Ref (for .tar.gz file): https://github.com/helm/helm/releases
       "wget https://get.helm.sh/helm-v3.16.1-linux-amd64.tar.gz",
       "tar -zxvf helm-v3.16.1-linux-amd64.tar.gz",
       "sudo mv linux-amd64/helm /usr/local/bin/helm",
       "helm version",
 
       # Install ArgoCD
-      # Ref: https://argo-cd.readthedocs.io/en/stable/cli_installation/
       "VERSION=$(curl -L -s https://raw.githubusercontent.com/argoproj/argo-cd/stable/VERSION)",
       "curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/download/v$VERSION/argocd-linux-amd64",
       "sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd",
       "rm argocd-linux-amd64",
 
       # Install Java 17
-      # Ref: https://www.rosehosting.com/blog/how-to-install-java-17-lts-on-ubuntu-20-04/
       "sudo apt update -y",
       "sudo apt install openjdk-17-jdk openjdk-17-jre -y",
       "java -version",
 
       # Install Jenkins
-      # Ref: https://www.jenkins.io/doc/book/installing/linux/#debianubuntu
       "sudo wget -O /usr/share/keyrings/jenkins-keyring.asc https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key",
       "echo \"deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/\" | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null",
       "sudo apt-get update -y",

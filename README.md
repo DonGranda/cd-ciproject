@@ -258,3 +258,9 @@ pipeline {
 }
 ```
 
+## Cleanup
+- Run cleanup pipelines to delete the resources such as load balancers, services, and deployment files.
+- Use `terraform destroy` to remove the EKS cluster and other infrastructure.
+
+
+---
