@@ -1,20 +1,74 @@
-name: Configure-Prometheus-Grafana-AgroCD
+name: Install Monitoring on EKS
 
-on: 
-  workflow_dispatch
-  # - push
+on:
+  workflow_dispatch:
+    inputs:
+      CLUSTER_NAME:
+        description: 'EKS cluster name'
+        required: true
+        default: 'amazon-cluster'
 
-jobs: 
-    Configuring-Monitoring-and-CD-tools:
-        runs-on: ubuntu-latest
-        steps: 
-          - name: Checkout Code 
-            uses: actions/checkout@v4
+env:
+  AWS_REGION: eu-north-1
 
-          - name: AWS EKS credentials
-            run: aws eks update-kubeconfig --name devops-project-cluster  --region {{env.AWS_REGION}}# Change to your cluster name to match the EKS cluster name
-    
-          - name: Setup kubectl
-            uses: azure/setup-kubectl@v1
-            
-    
+jobs:
+  deploy-monitoring:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'latest'
+
+      - name: Login to EKS
+        run: |
+          aws eks --region ${{ env.AWS_REGION }} update-kubeconfig --name ${{ github.event.inputs.CLUSTER_NAME }}
+
+      - name: Install Prometheus & Grafana
+        run: |
+          helm repo add stable https://charts.helm.sh/stable || true
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+          helm repo update
+          
+          # Check if namespace 'prometheus' exists
+          if kubectl get namespace prometheus > /dev/null 2>&1; then
+            echo "Prometheus namespace exists, upgrading existing installation"
+            helm upgrade stable prometheus-community/kube-prometheus-stack -n prometheus
+          else
+            echo "Creating prometheus namespace and installing monitoring stack"
+            kubectl create namespace prometheus
+            helm install stable prometheus-community/kube-prometheus-stack -n prometheus
+          fi
+          
+          # Expose services as LoadBalancer to make them accessible
+          kubectl patch svc stable-kube-prometheus-sta-prometheus -n prometheus -p '{"spec": {"type": "LoadBalancer"}}'
+          kubectl patch svc stable-grafana -n prometheus -p '{"spec": {"type": "LoadBalancer"}}'
+          
+      - name: Get access information
+        run: |
+          echo "Waiting for LoadBalancer endpoints to be assigned..."
+          sleep 30
+          
+          echo "Grafana URL:"
+          kubectl get svc stable-grafana -n prometheus -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+          echo ""
+          
+          echo "Default Grafana Admin Username: admin"
+          echo "Default Grafana Admin Password:"
+          kubectl get secret stable-grafana -n prometheus -o jsonpath="{.data.admin-password}" | base64 --decode
+          echo ""
+          
+          echo "Prometheus URL:"
+          kubectl get svc stable-kube-prometheus-sta-prometheus -n prometheus -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'

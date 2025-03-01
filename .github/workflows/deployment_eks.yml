@@ -1,28 +1,85 @@
-name: Deployment to EKS 
+# name: Deployment to EKS 
 
-on:
-  # - push 
-  workflow_dispatch
-jobs:
-  Build-Deploy:     
-    runs-on: ubuntu-latest
-    steps: 
-      - name: Checkout Code 
-        uses: actions/checkout@v4
+# on:
+#   # - push 
+#   workflow_dispatch
+# jobs:
+#   Build-Deploy:     
+#     runs-on: ubuntu-latest
+#     steps: 
+#       - name: Checkout Code 
+#         uses: actions/checkout@v4
 
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v1
+#       - name: Setup kubectl
+#         uses: azure/setup-kubectl@v1
 
-      - name: AWS EKS credentials
-        run: aws eks update-kubeconfig --name devops-project-cluster  --region {{env.AWS_REGION}}# Change to your cluster name
+#       - name: AWS EKS credentials
+#         run: aws eks update-kubeconfig --name devops-project-cluster  --region {{env.AWS_REGION}}# Change to your cluster name
 
-      - name: Update Deployment Image 
-        run: |
-          sed -i "s/IMAGE_TAG_PLACEHOLDER/${{ github.sha }}/g" ./k8s/app.yaml
+#       - name: Update Deployment Image 
+#         run: |
+#           sed -i "s/IMAGE_TAG_PLACEHOLDER/${{ github.sha }}/g" ./k8s/app.yaml
 
-      - name: Deploy to EKS
-        run: kubectl apply -f k8s_files/  --validate=false 
+#       - name: Deploy to EKS
+#         run: kubectl apply -f k8s_files/  --validate=false 
 
 
 
     
+name: Deploy to EKS
+
+on:
+  workflow_dispatch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'latest'
+
+      - name: Login to EKS
+        run: |
+          aws eks --region ${{ vars.AWS_REGION }} update-kubeconfig --name ${{ github.event.inputs.CLUSTER_NAME }}
+
+      - name: Configure Prometheus & Grafana
+        run: |
+          helm repo add stable https://charts.helm.sh/stable || true
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+          
+          # Check if namespace 'prometheus' exists
+          if kubectl get namespace prometheus > /dev/null 2>&1; then
+            # If namespace exists, upgrade the Helm release
+            helm upgrade stable prometheus-community/kube-prometheus-stack -n prometheus
+          else
+            # If namespace does not exist, create it and install Helm release
+            kubectl create namespace prometheus
+            helm install stable prometheus-community/kube-prometheus-stack -n prometheus
+          fi
+          
+          kubectl patch svc stable-kube-prometheus-sta-prometheus -n prometheus -p '{"spec": {"type": "LoadBalancer"}}'
+          kubectl patch svc stable-grafana -n prometheus -p '{"spec": {"type": "LoadBalancer"}}'
+
+      - name: Configure ArgoCD
+        run: |
+          # Install ArgoCD
+          kubectl create namespace argocd || true
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+          kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}'
