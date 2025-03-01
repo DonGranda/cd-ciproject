@@ -1,4 +1,21 @@
-name: remote ssh command
+# name: remote ssh command
+# on:
+#   push
+
+# jobs:
+#   build:
+#     name: Build
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: executing remote ssh commands using password
+#         uses: appleboy/ssh-action@v1.2.1
+#         with:
+#           host: ${{ secrets.EC2_URL }}
+#           username: ${{ secrets.EC2_USERNAME }}
+#           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+#           script: |
+#             echo "Hi there "
+name: Remote SSH Command
 on:
   push
 
@@ -7,11 +24,16 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - name: executing remote ssh commands using password
+      - name: Executing remote SSH commands
         uses: appleboy/ssh-action@v1.2.1
         with:
           host: ${{ secrets.EC2_URL }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            echo "Hi there "
+            echo "=== START: Running on EC2 ==="
+            echo "Hostname: $(hostname)"
+            echo "Current User: $(whoami)"
+            echo "Current Directory: $(pwd)"
+            echo "Hi there from EC2!"
+            echo "=== END: Script Execution ==="
