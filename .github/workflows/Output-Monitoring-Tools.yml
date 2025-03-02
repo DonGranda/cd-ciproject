@@ -1,4 +1,4 @@
-name: Output of Grafana and Promethus and AgroCD Server
+name: Output of Grafana and Promethus and AgroCD Server From the EC2
 on:
   workflow_dispatch 
 

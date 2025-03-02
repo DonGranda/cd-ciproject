@@ -21,6 +21,8 @@ module "eks" {
   subnet_ids = module.vpc.private_subnets
 
   eks_managed_node_groups = {
+    
+
     dongrada-node = {
       min_size     = 2
       max_size     = 4
@@ -33,6 +35,8 @@ module "eks" {
         ExtraTag = "Dongrada_Node"
       }
     }
+
+
   }
 
   tags = local.tags

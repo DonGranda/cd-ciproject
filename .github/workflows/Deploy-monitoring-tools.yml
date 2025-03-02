@@ -1,74 +1,75 @@
-name: Install Monitoring on EKS
+name: Connect EC2 to EKS and Configure Monitoring Stack
 
 on:
-  workflow_dispatch:
-    inputs:
-      CLUSTER_NAME:
-        description: 'EKS cluster name'
-        required: true
-        default: 'amazon-cluster'
-
-env:
-  AWS_REGION: eu-north-1
+  workflow_dispatch
 
 jobs:
-  deploy-monitoring:
+  setup-ec2:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Execute remote SSH commands on EC2
+        uses: appleboy/ssh-action@master
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          host: ${{ secrets.EC2_URL }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY}}
+          script: |
+            # Update EC2 and install required packages
+            sudo apt update -y
+            sudo apt install -y curl wget unzip awscli
+            
+            # Install kubectl
+            curl -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.30.4/2024-09-11/bin/linux/amd64/kubectl
+            chmod +x kubectl
+            sudo mv kubectl /usr/local/bin/
 
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'latest'
+            # Install Helm
+            curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+            chmod 700 get_helm.sh
+            ./get_helm.sh
 
-      - name: Setup Helm
-        uses: azure/setup-helm@v3
-        with:
-          version: 'latest'
+            # Configure AWS credentials (ensure EC2 has IAM role or configure manually)
+            aws eks --region us-east-1 update-kubeconfig --name my-cluster
 
-      - name: Login to EKS
-        run: |
-          aws eks --region ${{ env.AWS_REGION }} update-kubeconfig --name ${{ github.event.inputs.CLUSTER_NAME }}
+            # Verify connection to EKS
+            kubectl get nodes
 
-      - name: Install Prometheus & Grafana
-        run: |
-          helm repo add stable https://charts.helm.sh/stable || true
-          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
-          helm repo update
-          
-          # Check if namespace 'prometheus' exists
-          if kubectl get namespace prometheus > /dev/null 2>&1; then
-            echo "Prometheus namespace exists, upgrading existing installation"
-            helm upgrade stable prometheus-community/kube-prometheus-stack -n prometheus
-          else
-            echo "Creating prometheus namespace and installing monitoring stack"
-            kubectl create namespace prometheus
-            helm install stable prometheus-community/kube-prometheus-stack -n prometheus
-          fi
-          
-          # Expose services as LoadBalancer to make them accessible
-          kubectl patch svc stable-kube-prometheus-sta-prometheus -n prometheus -p '{"spec": {"type": "LoadBalancer"}}'
-          kubectl patch svc stable-grafana -n prometheus -p '{"spec": {"type": "LoadBalancer"}}'
-          
-      - name: Get access information
-        run: |
-          echo "Waiting for LoadBalancer endpoints to be assigned..."
-          sleep 30
-          
-          echo "Grafana URL:"
-          kubectl get svc stable-grafana -n prometheus -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-          echo ""
-          
-          echo "Default Grafana Admin Username: admin"
-          echo "Default Grafana Admin Password:"
-          kubectl get secret stable-grafana -n prometheus -o jsonpath="{.data.admin-password}" | base64 --decode
-          echo ""
-          
-          echo "Prometheus URL:"
-          kubectl get svc stable-kube-prometheus-sta-prometheus -n prometheus -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+            # Add Helm repositories
+            helm repo add stable https://charts.helm.sh/stable || true
+            helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+            helm repo update
+
+            # Deploy Prometheus Stack
+            if kubectl get namespace prometheus > /dev/null 2>&1; then
+                helm upgrade stable prometheus-community/kube-prometheus-stack -n prometheus
+            else
+                kubectl create namespace prometheus
+                helm install stable prometheus-community/kube-prometheus-stack -n prometheus
+            fi
+
+            # Patch Prometheus & Grafana services to LoadBalancer
+            kubectl patch svc stable-kube-prometheus-sta-prometheus -n prometheus -p '{"spec": {"type": "LoadBalancer"}}'
+            kubectl patch svc stable-grafana -n prometheus -p '{"spec": {"type": "LoadBalancer"}}'
+
+            # Deploy ArgoCD
+            kubectl create namespace argocd || true
+            kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+            kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}'
+
+            # Fetch and display LoadBalancer IPs
+            echo "Fetching Service IPs..."
+            echo "Prometheus:"
+            kubectl get svc stable-kube-prometheus-sta-prometheus -n prometheus -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+            echo ""
+            
+            echo "Grafana:"
+            kubectl get svc stable-grafana -n prometheus -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+            echo ""
+            
+            echo "ArgoCD:"
+            kubectl get svc argocd-server -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+            echo ""

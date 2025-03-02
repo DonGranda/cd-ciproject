@@ -1,7 +1,6 @@
-name: Check for Code Smells and Push to ECR
+name: Check for Code Quality and Push to ECR
 
-on:
-  workflow_dispatch
+on: workflow_dispatch
 
 jobs:
   Check_for_Code_Smells:
@@ -9,13 +8,17 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        
+
       - name: Sonar Scan
         uses: sonarsource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          
+        with:
+          args: >
+            -Dsonar.projectName=${{ vars.ECR_REPO_NAME }}
+            -Dsonar.projectKey=${{ vars.ECR_REPO_NAME }}
+
       # Check the Quality Gate status.
       - name: SonarQube Quality Gate check
         id: sonarqube-quality-gate-check
@@ -25,13 +28,13 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }} # Optional
-          
+
       - name: Show SonarQube Quality Gate Status
         run: echo "The Quality Gate status is ${{ steps.sonarqube-quality-gate-check.outputs.quality-gate-status }}"
-        
+
       - name: Install all packages for source code
         run: npm install
-        
+
       # Use GitHub Action for Trivy instead of manual installation
       - name: Scan for Vulnerabilities using Trivy
         uses: aquasecurity/trivy-action@master
@@ -51,11 +54,11 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-        
+
       - name: Build, tag, and push docker image to Amazon ECR
         env:
           REGISTRY: ${{ secrets.REGISTRY }}
